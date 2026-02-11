@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RobTop Text Generator (SVG + Backstroke + Hole Fix)</title>
+<style>
+@font-face {
+    font-family: "Pusab";
+    src: url("pusab.otf") format("opentype");
+}
+
+body {
+    background-color: #111;
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 40px;
+}
+
+h1 { margin-bottom: 20px; }
+
+.controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+input, select {
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    outline: none;
+}
+
+.output-box {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+}
+
+svg { overflow: visible; }
+
+text {
+    font-family: "Pusab";
+    dominant-baseline: hanging;
+    paint-order: stroke fill;
+}
+</style>
+</head>
+<body>
+
+<h1>RobTop Text Generator (SVG + Backstroke + Hole Fix)</h1>
+
+<div class="controls">
+    <input id="textInput" type="text" value="Hello!" oninput="updateText()">
+    
+    <select id="sizeSelect" onchange="updateSizeFromSelect()">
+        <option value="32">Small</option>
+        <option value="48">Medium</option>
+        <option value="64" selected>Large</option>
+        <option value="96">Huge</option>
+    </select>
+
+    <input id="customSize" type="number" min="8" max="500" value="64"
+           onchange="updateSizeFromInput()">
+</div>
+
+<div class="output-box">
+<svg id="svg">
+    <defs>
+        <linearGradient id="strokeGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ffbb00"/>
+            <stop offset="100%" stop-color="#ff8d00"/>
+        </linearGradient>
+
+        <linearGradient id="backStrokeGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#fff87b"/>
+            <stop offset="100%" stop-color="#f96801"/>
+        </linearGradient>
+    </defs>
+
+    <!-- Hole rectangles -->
+    <g id="holeRects"></g>
+
+    <!-- Backstroke -->
+    <text id="backStroke"
+          x="40" y="40"
+          fill="none"
+          stroke="url(#backStrokeGradient)"
+          stroke-linejoin="round"
+          stroke-linecap="round">
+        Hello!
+    </text>
+
+    <!-- Main stroke -->
+    <text id="strokeText"
+          x="40" y="40"
+          fill="none"
+          stroke="url(#strokeGradient)"
+          stroke-linejoin="round"
+          stroke-linecap="round">
+        Hello!
+    </text>
+
+    <!-- Shadows -->
+    <text id="shadow1" x="38" y="38" fill="#ce5a05">Hello!</text>
+    <text id="shadow2" x="42" y="42" fill="#fff87b">Hello!</text>
+
+    <!-- Main fill -->
+    <text id="mainText" x="40" y="40" fill="black">Hello!</text>
+</svg>
+</div>
+
+<script>
+const layers = ["backStroke", "strokeText", "shadow1", "shadow2", "mainText"];
+const holeLetters = /[OQ0oq]/;
+
+function updateText() {
+    const text = document.getElementById("textInput").value || " ";
+    const holeGroup = document.getElementById("holeRects");
+    holeGroup.innerHTML = ""; // clear previous
+
+    // Update all layers
+    layers.forEach(id => {
+        const el = document.getElementById(id);
+        el.textContent = text;
+    });
+
+    // Draw smaller hole boxes for letters with holes
+    const xStart = 40; // starting x
+    let offset = 0;
+    const fontSize = Number(document.getElementById("customSize").value);
+    const boxSize = fontSize * 0.6; // smaller box (60% of font size)
+    const yOffset = (fontSize - boxSize) / 2; // center vertically
+
+    for (let char of text) {
+        if (holeLetters.test(char)) {
+            const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+            rect.setAttribute("x", xStart + offset + (fontSize - boxSize)/2); // center horizontally
+            rect.setAttribute("y", 40 + yOffset); // center vertically
+            rect.setAttribute("width", boxSize);
+            rect.setAttribute("height", boxSize);
+            rect.setAttribute("fill", "url(#strokeGradient)");
+            holeGroup.appendChild(rect);
+        }
+        offset += fontSize * 0.6; // approximate letter spacing
+    }
+
+    resizeSVG();
+}
+
+function applyFontSize(fontSize) {
+    const mainStroke = fontSize * 0.42;
+    const backStroke = mainStroke * 1.15;
+
+    document.getElementById("backStroke").setAttribute("font-size", fontSize + "px");
+    document.getElementById("backStroke").setAttribute("stroke-width", backStroke);
+
+    document.getElementById("strokeText").setAttribute("font-size", fontSize + "px");
+    document.getElementById("strokeText").setAttribute("stroke-width", mainStroke);
+
+    ["shadow1","shadow2","mainText"].forEach(id => {
+        document.getElementById(id).setAttribute("font-size", fontSize + "px");
+    });
+
+    updateText();
+}
+
+function updateSizeFromSelect() {
+    const fontSize = Number(document.getElementById("sizeSelect").value);
+    document.getElementById("customSize").value = fontSize;
+    applyFontSize(fontSize);
+}
+
+function updateSizeFromInput() {
+    let fontSize = Number(document.getElementById("customSize").value);
+    if (fontSize < 8) fontSize = 8;
+    if (fontSize > 500) fontSize = 500;
+
+    document.getElementById("customSize").value = fontSize;
+    applyFontSize(fontSize);
+
+    const select = document.getElementById("sizeSelect");
+    if ([32,48,64,96].includes(fontSize)) {
+        select.value = fontSize;
+    } else {
+        select.selectedIndex = -1;
+    }
+}
+
+function resizeSVG() {
+    const svg = document.getElementById("svg");
+    const bbox = document.getElementById("mainText").getBBox();
+    svg.setAttribute("width", bbox.width + 100);
+    svg.setAttribute("height", bbox.height + 100);
+}
+
+// Initialize
+updateSizeFromSelect();
+updateText();
+</script>
+
+</body>
+</html>
